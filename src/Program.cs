@@ -56,7 +56,7 @@ class Program
                 TryFindExecutablePath(dirs, commandName, out var filePath);
                 if (!string.IsNullOrWhiteSpace(filePath))
                 {
-                    Process.Start(commandName, commandArgs).WaitForExit();
+                    Process.Start(filePath, commandArgs).WaitForExit();
                 }
                 else
                     Console.WriteLine($"{command}: command not found");
