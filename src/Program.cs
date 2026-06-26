@@ -58,9 +58,9 @@ class Program
                 {
                     Process.Start(commandName, commandArgs).WaitForExit();
                 }
+                else
+                    Console.WriteLine($"{command}: command not found");
             }
-
-            Console.WriteLine($"{command}: command not found");
         }
     }
 
