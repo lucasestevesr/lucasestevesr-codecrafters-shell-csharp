@@ -5,12 +5,16 @@ class Program
         while (true)
         {
             Console.Write("$ ");
-            var command = Console.ReadLine();
+            string command = Console.ReadLine();
             if (command == "exit")
             {
                 break;
             }
-            Console.Write($"{command}: command not found\n");
+            if (command.StartsWith("echo "))
+            {
+                Console.WriteLine(command.Substring(5));
+            }
+            Console.WriteLine($"{command}: command not found");
             //Console.Clear();
         }
     }
