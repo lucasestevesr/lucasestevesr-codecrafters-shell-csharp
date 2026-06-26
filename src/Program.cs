@@ -3,18 +3,26 @@ class Program
     static void Main()
     {
         List<string> commands = new List<string>{ "exit", "echo", "type"};
+        var path = Environment.GetEnvironmentVariable("PATH");
+        string[] folders = Array.Empty<string>();
+        if (!string.IsNullOrWhiteSpace(path))
+        { 
+            char separator = OperatingSystem.IsWindows() ? ';' : ':';
+            folders = path!.Split(separator);
+        }
         while (true)
         {
             Console.Write("$ ");
             string command = Console.ReadLine();
+            
             if (command == commands[0])
             {
                 break;
             }
-            else if (command.StartsWith("echo "))
+
+            if (command.StartsWith("echo "))
             {
                 Console.WriteLine(command.Substring(5));
-                continue;
             }
             else if (command.StartsWith("type "))
             {
@@ -25,11 +33,21 @@ class Program
                 }
                 else
                 {
+                    foreach (var folder in folders)
+                    {
+                        var filePath = Path.Combine(folder, command);
+                        if (File.Exists(filePath) && File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
+                        {
+                            Console.WriteLine($"{command} is {filePath}");
+                            continue;
+                        }
+                    }
                     Console.WriteLine($"{command.Substring(5)}: not found");
                     continue;
                 }
             }
-            Console.WriteLine($"{command}: command not found");
+            else
+                Console.WriteLine($"{command}: command not found");
         }
     }
 }
