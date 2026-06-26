@@ -25,41 +25,36 @@ class Program
             {
                 break;
             }
-            if (commandName == "pwd")
+            else if (commandName == "pwd")
             { 
                 Console.WriteLine(Directory.GetCurrentDirectory());
-                continue;
             }
-            if (commandName == "echo")
+            else if (commandName == "echo")
             {
                 Console.WriteLine(command.Substring(5));
-                continue;
             }
-            if (commandName == "type")
+            else if (commandName == "type")
             {
-                var name = command.Substring(5);
+                var name = commandArgs[0];
                 if (_builtinCommands.Contains(name))
                 {
                     Console.WriteLine($"{name} is a shell builtin");
                     continue;
                 }
+                else if (TryFindExecutablePath(dirs, name, out var filePath))
+                {
+
+                    Console.WriteLine($"{name} is {filePath}");
+                }
                 else
                 {
-                    if (TryFindExecutablePath(dirs, name, out var filePath))
-                    {
-                        Console.WriteLine($"{name} is {filePath}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"{name}: not found");
-                    }
-                    continue;
+                    Console.WriteLine($"{name}: not found");
                 }
             }
             else {
                 if (TryFindExecutablePath(dirs, commandName, out var filePath))
                 {
-                    Process.Start(filePath, commandArgs).WaitForExit();
+                    Process.Start(commandName, commandArgs).WaitForExit();
                 }
                 else
                 {
