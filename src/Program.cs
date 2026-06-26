@@ -28,6 +28,7 @@ class Program
             if (commandName == "pwd")
             { 
                 Console.WriteLine(Directory.GetCurrentDirectory());
+                continue;
             }
             if (commandName == "echo")
             {
