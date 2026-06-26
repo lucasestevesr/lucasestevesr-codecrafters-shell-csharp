@@ -35,7 +35,7 @@ class Program
                 {
                     foreach (var folder in folders)
                     {
-                        var filePath = Path.Combine(folder, command);
+                        var filePath = Path.Combine(folder, command.Substring(5));
                         if (File.Exists(filePath) && File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
                         {
                             Console.WriteLine($"{command} is {filePath}");
