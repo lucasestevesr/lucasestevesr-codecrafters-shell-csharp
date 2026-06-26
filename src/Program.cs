@@ -53,7 +53,7 @@ class Program
                 }
             }
             else {
-                TryFindExecutablePath(dirs, command, out var filePath);
+                TryFindExecutablePath(dirs, commandName, out var filePath);
                 if (!string.IsNullOrWhiteSpace(filePath))
                 {
                     Process.Start(commandName, commandArgs).WaitForExit();
