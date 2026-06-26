@@ -39,7 +39,7 @@ class Program
                         if (File.Exists(filePath) && File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
                         {
                             Console.WriteLine($"{command.Substring(5)} is {filePath}");
-                            continue;
+                            break;
                         }
                     }
                     Console.WriteLine($"{command.Substring(5)}: not found");
