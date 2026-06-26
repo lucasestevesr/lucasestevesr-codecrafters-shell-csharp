@@ -25,7 +25,7 @@ class Program
                 }
                 else
                 {
-                    Console.WriteLine($"{command.Substring(5)}: command not found");
+                    Console.WriteLine($"{command.Substring(5)}: not found");
                     continue;
                 }
             }
