@@ -2,11 +2,12 @@ class Program
 {
     static void Main()
     {
+        List<string> commands = new List<string>{ "exit", "echo", "type"};
         while (true)
         {
             Console.Write("$ ");
             string command = Console.ReadLine();
-            if (command == "exit")
+            if (command == commands[0])
             {
                 break;
             }
@@ -17,7 +18,8 @@ class Program
             }
             else if (command.StartsWith("type "))
             {
-                Console.WriteLine($"{command.Substring(5)} is a shell builtin");
+                if(commands.Contains(command.Substring(5)))
+                    Console.WriteLine($"{command.Substring(5)} is a shell builtin");
                 continue;
             }
             Console.WriteLine($"{command}: command not found");
