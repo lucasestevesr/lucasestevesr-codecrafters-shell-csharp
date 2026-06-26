@@ -33,16 +33,19 @@ class Program
                 }
                 else
                 {
+                    bool found = false;
                     foreach (var folder in folders)
                     {
                         var filePath = Path.Combine(folder, command.Substring(5));
                         if (File.Exists(filePath) && File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
                         {
+                            found = true;
                             Console.WriteLine($"{command.Substring(5)} is {filePath}");
                             break;
                         }
                     }
-                    Console.WriteLine($"{command.Substring(5)}: not found");
+                    if(!found)
+                        Console.WriteLine($"{command.Substring(5)}: not found");
                     continue;
                 }
             }
