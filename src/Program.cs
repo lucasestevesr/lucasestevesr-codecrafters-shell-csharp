@@ -20,7 +20,6 @@ class Program
             {
                 if(commands.Contains(command.Substring(5)))
                     Console.WriteLine($"{command.Substring(5)} is a shell builtin");
-                continue;
             }
             Console.WriteLine($"{command}: command not found");
             //Console.Clear();
