@@ -10,9 +10,10 @@ class Program
             {
                 break;
             }
-            if (command.StartsWith("echo "))
+            else if (command.StartsWith("echo "))
             {
                 Console.WriteLine(command.Substring(5));
+                continue;
             }
             Console.WriteLine($"{command}: command not found");
             //Console.Clear();
