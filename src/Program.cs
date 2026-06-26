@@ -38,7 +38,7 @@ class Program
                         var filePath = Path.Combine(folder, command.Substring(5));
                         if (File.Exists(filePath) && File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
                         {
-                            Console.WriteLine($"{command} is {filePath}");
+                            Console.WriteLine($"{command.Substring(5)} is {filePath}");
                             continue;
                         }
                     }
