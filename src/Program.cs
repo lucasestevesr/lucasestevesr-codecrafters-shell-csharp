@@ -1,57 +1,108 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Xml.Linq;
+
 class Program
 {
+    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type" };
+    
     static void Main()
     {
-        List<string> commands = new List<string>{ "exit", "echo", "type"};
+        
         var path = Environment.GetEnvironmentVariable("PATH");
-        string[] folders = Array.Empty<string>();
-        if (!string.IsNullOrWhiteSpace(path))
-        { 
-            char separator = OperatingSystem.IsWindows() ? ';' : ':';
-            folders = path!.Split(separator);
-        }
+        string[] dirs = GetPathDirs(path);
         while (true)
         {
             Console.Write("$ ");
             string command = Console.ReadLine();
-            
-            if (command == commands[0])
+            string[] args = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string commandName = args[0];
+            string[] commandArgs = args[1..];
+
+            if (commandName == "exit")
             {
                 break;
             }
 
-            if (command.StartsWith("echo "))
+            if (commandName == "echo")
             {
                 Console.WriteLine(command.Substring(5));
+                continue;
             }
-            else if (command.StartsWith("type "))
+            if (commandName == "type")
             {
-                if (commands.Contains(command.Substring(5)))
+                var name = command.Substring(5);
+                if (_builtinCommands.Contains(name))
                 {
-                    Console.WriteLine($"{command.Substring(5)} is a shell builtin");
+                    Console.WriteLine($"{name} is a shell builtin");
                     continue;
                 }
                 else
                 {
-                    bool found = false;
-                    foreach (var folder in folders)
+                    if (TryFindExecutablePath(dirs, name, out var filePath))
                     {
-                        var filePath = Path.Combine(folder, command.Substring(5));
-                        if (File.Exists(filePath) && File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
-                        {
-                            found = true;
-                            Console.WriteLine($"{command.Substring(5)} is {filePath}");
-                            break;
-                        }
+                        Console.WriteLine($"{name} is {filePath}");
                     }
-                    if(!found)
-                        Console.WriteLine($"{command.Substring(5)}: not found");
+                    else
+                    {
+                        Console.WriteLine($"{name}: not found");
+                    }
                     continue;
                 }
             }
-            else
-                Console.WriteLine($"{command}: command not found");
+            else {
+                TryFindExecutablePath(dirs, command, out var filePath);
+                if (!string.IsNullOrWhiteSpace(filePath))
+                {
+                    Process.Start(commandName, commandArgs).WaitForExit();
+                }
+            }
+
+            Console.WriteLine($"{command}: command not found");
         }
+    }
+
+    private static bool TryFindExecutablePath(string[] dirs, string commandName, out string path)
+    {
+        foreach (var dir in dirs)
+        {
+            var filePath = Path.Combine(dir, commandName);
+            if (File.Exists(filePath))
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    path = filePath;
+                    return true;
+                }
+
+                try
+                {
+                    if (File.GetUnixFileMode(filePath).HasFlag(UnixFileMode.UserExecute))
+                    {
+                        path = filePath;
+                        return true;
+                    }
+                }
+                catch
+                {
+
+                }
+            }
+        }
+
+        path = string.Empty;
+        return false;
+    }
+
+    private static string[] GetPathDirs(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return Array.Empty<string>();
+
+        char separator = OperatingSystem.IsWindows() ? ';' : ':';
+        return path.Split(separator);
     }
 }
 
