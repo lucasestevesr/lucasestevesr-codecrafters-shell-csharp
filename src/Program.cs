@@ -6,7 +6,7 @@ using System.Xml.Linq;
 
 class Program
 {
-    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type" };
+    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd" };
     
     static void Main()
     {
@@ -25,7 +25,10 @@ class Program
             {
                 break;
             }
-
+            if (commandName == "pwd")
+            { 
+                Console.WriteLine(Directory.GetCurrentDirectory());
+            }
             if (commandName == "echo")
             {
                 Console.WriteLine(command.Substring(5));
@@ -53,13 +56,14 @@ class Program
                 }
             }
             else {
-                TryFindExecutablePath(dirs, commandName, out var filePath);
-                if (!string.IsNullOrWhiteSpace(filePath))
+                if (TryFindExecutablePath(dirs, commandName, out var filePath))
                 {
                     Process.Start(filePath, commandArgs).WaitForExit();
                 }
                 else
+                {
                     Console.WriteLine($"{command}: command not found");
+                }
             }
         }
     }
