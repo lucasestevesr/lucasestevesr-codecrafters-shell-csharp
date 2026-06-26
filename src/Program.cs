@@ -16,10 +16,10 @@ class Program
                 Console.WriteLine(command.Substring(5));
                 continue;
             }
-            else if (command.StartsWith("type "))
+            else if (command.StartsWith("type ") && commands.Contains(command.Substring(5)))
             {
-                if(commands.Contains(command.Substring(5)))
-                    Console.WriteLine($"{command.Substring(5)} is a shell builtin");
+                Console.WriteLine($"{command.Substring(5)} is a shell builtin");
+                continue;
             }
             Console.WriteLine($"{command}: command not found");
             //Console.Clear();
