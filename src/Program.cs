@@ -13,7 +13,7 @@ class Program
         var path = Environment.GetEnvironmentVariable("PATH");
         var home = OperatingSystem.IsWindows() 
             ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) 
-            : Environment.GetEnvironmentVariable("HOME");
+            : Environment.GetEnvironmentVariable("HOME") ?? "";
 
         string[] dirs = GetPathDirs(path);
         string filePath;
@@ -38,7 +38,7 @@ class Program
                     return;
 
                 case "echo":
-                    Console.WriteLine(commandArgs);
+                    Console.WriteLine(string.Join(" ", commandArgs));
                     break;
 
                 case "pwd":
