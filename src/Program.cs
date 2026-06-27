@@ -30,7 +30,7 @@ class Program
 
             string[] args = command!.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             string commandName = args[0];
-            string[] commandArgs = args[1..];
+            string[] commandArgs = HandleSingleQuotes(args[1..]);
 
             switch (commandName)
             { 
@@ -113,7 +113,6 @@ class Program
                 }
             }
         }
-
         path = string.Empty;
         return false;
     }
@@ -125,6 +124,11 @@ class Program
 
         char separator = OperatingSystem.IsWindows() ? ';' : ':';
         return path.Split(separator);
+    }
+
+    private static string[] HandleSingleQuotes(string[] inputs)
+    {
+        return inputs.Select(arg => arg.Trim('\'')).ToArray();
     }
 }
 
