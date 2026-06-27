@@ -38,7 +38,7 @@ class Program
                     return;
 
                 case "echo":
-                    Console.WriteLine(command.Substring(5));
+                    Console.WriteLine(commandArgs);
                     break;
 
                 case "pwd":
