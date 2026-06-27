@@ -131,11 +131,24 @@ class Program
 
         bool insideSingleQuotes = false;
         bool insideDoubleQuotes = false;
+        bool escapeNextChar = false;
         bool hasCurrentArg = false;
 
         foreach (char c in command)
         {
-            if (c == '\'' && !insideDoubleQuotes)
+            if (escapeNextChar)
+            {
+                current.Append(c);
+                escapeNextChar = false;
+                hasCurrentArg = true;
+                continue;
+            }
+            else if (c == '\\' && !insideDoubleQuotes && !insideSingleQuotes)
+            {
+                escapeNextChar = true;
+                continue;
+            }
+            else if (c == '\'' && !insideDoubleQuotes)
             {
                 insideSingleQuotes = !insideSingleQuotes;
                 hasCurrentArg = true;
