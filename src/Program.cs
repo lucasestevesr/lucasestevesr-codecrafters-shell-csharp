@@ -125,6 +125,12 @@ class Program
         return path.Split(separator);
     }
 
+    /// <summary>
+    /// Parses a command line input into arguments using a simple state machine,
+    /// handling quotes and escape characters.
+    /// </summary>
+    /// <param name="command">The command line input to parse.</param>
+    /// <returns>An array of parsed command arguments.</returns>
     private static string[] ParseCommandLine(string command)
     {
         List<string> args = new List<string>();
