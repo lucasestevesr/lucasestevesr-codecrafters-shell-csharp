@@ -2,64 +2,80 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Xml.Linq;
 
 class Program
 {
-    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd" };
+    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd" };
     
     static void Main()
     {
         
         var path = Environment.GetEnvironmentVariable("PATH");
         string[] dirs = GetPathDirs(path);
+        string filePath;
+
         while (true)
         {
             Console.Write("$ ");
-            string command = Console.ReadLine();
-            string[] args = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string? command = Console.ReadLine();
+            
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                continue;
+            }
+
+            string[] args = command!.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             string commandName = args[0];
             string[] commandArgs = args[1..];
 
-            if (commandName == "exit")
-            {
-                break;
-            }
-            else if (commandName == "pwd")
+            switch (commandName)
             { 
-                Console.WriteLine(Directory.GetCurrentDirectory());
-            }
-            else if (commandName == "echo")
-            {
-                Console.WriteLine(command.Substring(5));
-            }
-            else if (commandName == "type")
-            {
-                var name = commandArgs[0];
-                if (_builtinCommands.Contains(name))
-                {
-                    Console.WriteLine($"{name} is a shell builtin");
-                    continue;
-                }
-                else if (TryFindExecutablePath(dirs, name, out var filePath))
-                {
+                case "exit":
+                    return;
 
-                    Console.WriteLine($"{name} is {filePath}");
-                }
-                else
-                {
-                    Console.WriteLine($"{name}: not found");
-                }
-            }
-            else {
-                if (TryFindExecutablePath(dirs, commandName, out var filePath))
-                {
-                    Process.Start(commandName, commandArgs).WaitForExit();
-                }
-                else
-                {
-                    Console.WriteLine($"{command}: command not found");
-                }
+                case "echo":
+                    Console.WriteLine(command.Substring(5));
+                    break;
+
+                case "pwd":
+                    Console.WriteLine(Directory.GetCurrentDirectory());
+                    break;
+
+                case "cd":
+                    if (TryFindExecutablePath(args, commandName, out filePath))
+                        Directory.SetCurrentDirectory(commandArgs[0]);
+                    else
+                        Console.WriteLine($"cd: <{commandArgs[0]}>: No such file or directory");
+                    break;
+
+                case "type":
+
+                    var name = commandArgs[0];
+
+                    if (_builtinCommands.Contains(name))
+                    {
+                        Console.WriteLine($"{name} is a shell builtin");
+                    }
+                    else if (TryFindExecutablePath(dirs, name, out filePath))
+                    {
+                        Console.WriteLine($"{name} is {filePath}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{name}: not found");
+                    }
+                    break;
+               
+                default:
+                    if (TryFindExecutablePath(dirs, commandName, out filePath))
+                    {
+                        Process.Start(commandName, commandArgs).WaitForExit();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{command}: command not found");
+                    }
+                    break;
             }
         }
     }
