@@ -132,16 +132,22 @@ class Program
         System.Text.StringBuilder current = new System.Text.StringBuilder();
 
         bool insideSingleQuotes = false;
+        bool insideDoubleQuotes = false;
         bool hasCurrentArg = false;
 
         foreach (char c in command)
         {
-            if (c == '\'')
+            if (c == '\'' && !insideDoubleQuotes)
             {
                 insideSingleQuotes = !insideSingleQuotes;
                 hasCurrentArg = true;
             }
-            else if (char.IsWhiteSpace(c) && !insideSingleQuotes)
+            if (c == '"' && !insideSingleQuotes)
+            {
+                insideDoubleQuotes = !insideDoubleQuotes;
+                hasCurrentArg = true;
+            }
+            else if (char.IsWhiteSpace(c) && !insideSingleQuotes && !insideDoubleQuotes)
             {
                 if (hasCurrentArg)
                 {
