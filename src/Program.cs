@@ -1,7 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
+using System.Text;
 
 class Program
 {
@@ -129,7 +127,7 @@ class Program
     private static string[] ParseCommandLine(string command)
     {
         List<string> args = new List<string>();
-        System.Text.StringBuilder current = new System.Text.StringBuilder();
+        StringBuilder current = new StringBuilder();
 
         bool insideSingleQuotes = false;
         bool insideDoubleQuotes = false;
@@ -142,7 +140,7 @@ class Program
                 insideSingleQuotes = !insideSingleQuotes;
                 hasCurrentArg = true;
             }
-            if (c == '"' && !insideSingleQuotes)
+            else if (c == '"' && !insideSingleQuotes)
             {
                 insideDoubleQuotes = !insideDoubleQuotes;
                 hasCurrentArg = true;
