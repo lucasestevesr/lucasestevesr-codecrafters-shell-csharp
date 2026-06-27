@@ -4,7 +4,8 @@ using System.Text;
 class Program
 {
     private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd"};
-    
+    private static char[] _specialChars = new char[] { '\\', '"', '$', '`'};
+
     static void Main()
     {
         
@@ -134,31 +135,47 @@ class Program
         bool escapeNextChar = false;
         bool hasCurrentArg = false;
 
-        foreach (char c in command)
+        for (int i=0; i < command.Length; i++)
         {
             if (escapeNextChar)
             {
-                current.Append(c);
+                current.Append(command[i]);
                 escapeNextChar = false;
                 hasCurrentArg = true;
                 continue;
             }
-            else if (c == '\\' && !insideDoubleQuotes && !insideSingleQuotes)
+            else if (command[i] == '\\' && !insideDoubleQuotes && !insideSingleQuotes)
             {
                 escapeNextChar = true;
                 continue;
             }
-            else if (c == '\'' && !insideDoubleQuotes)
+            else if (command[i] == '\\' && insideDoubleQuotes)
+            {
+                if (i + 1 < command.Length && _specialChars.Contains(command[i + 1]))
+                {
+                    current.Append(command[i + 1]);
+                    hasCurrentArg = true;
+                    i++; // skip the next character since it's already processed.
+                }
+                else
+                { 
+                    current.Append(command[i]);
+                    hasCurrentArg = true;
+                }
+                continue;
+            }
+
+            else if (command[i] == '\'' && !insideDoubleQuotes)
             {
                 insideSingleQuotes = !insideSingleQuotes;
                 hasCurrentArg = true;
             }
-            else if (c == '"' && !insideSingleQuotes)
+            else if (command[i] == '"' && !insideSingleQuotes)
             {
                 insideDoubleQuotes = !insideDoubleQuotes;
                 hasCurrentArg = true;
             }
-            else if (char.IsWhiteSpace(c) && !insideSingleQuotes && !insideDoubleQuotes)
+            else if (char.IsWhiteSpace(command[i]) && !insideSingleQuotes && !insideDoubleQuotes)
             {
                 if (hasCurrentArg)
                 {
@@ -169,7 +186,7 @@ class Program
             }
             else
             {
-                current.Append(c);
+                current.Append(command[i]);
                 hasCurrentArg = true;
             }
         }
