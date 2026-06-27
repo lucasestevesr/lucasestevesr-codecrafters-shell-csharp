@@ -5,12 +5,16 @@ using System.IO;
 
 class Program
 {
-    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd" };
+    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd"};
     
     static void Main()
     {
         
         var path = Environment.GetEnvironmentVariable("PATH");
+        var home = OperatingSystem.IsWindows() 
+            ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) 
+            : Environment.GetEnvironmentVariable("HOME");
+
         string[] dirs = GetPathDirs(path);
         string filePath;
 
@@ -42,7 +46,9 @@ class Program
                     break;
 
                 case "cd":
-                    if (Directory.Exists(commandArgs[0]))
+                    if (commandArgs[0] == "~")
+                        Directory.SetCurrentDirectory(home);
+                    else if (Directory.Exists(commandArgs[0]))
                         Directory.SetCurrentDirectory(commandArgs[0]);
                     else
                         Console.WriteLine($"cd: {commandArgs[0]}: No such file or directory");
