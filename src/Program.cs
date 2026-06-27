@@ -42,7 +42,7 @@ class Program
                     break;
 
                 case "cd":
-                    if (TryFindExecutablePath(args, commandName, out filePath))
+                    if (Directory.Exists(commandArgs[0]))
                         Directory.SetCurrentDirectory(commandArgs[0]);
                     else
                         Console.WriteLine($"cd: <{commandArgs[0]}>: No such file or directory");
