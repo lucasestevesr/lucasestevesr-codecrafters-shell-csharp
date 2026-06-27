@@ -45,7 +45,7 @@ class Program
                     if (Directory.Exists(commandArgs[0]))
                         Directory.SetCurrentDirectory(commandArgs[0]);
                     else
-                        Console.WriteLine($"cd: <{commandArgs[0]}>: No such file or directory");
+                        Console.WriteLine($"cd: {commandArgs[0]}: No such file or directory");
                     break;
 
                 case "type":
