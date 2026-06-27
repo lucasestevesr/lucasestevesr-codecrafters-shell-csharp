@@ -28,9 +28,9 @@ class Program
                 continue;
             }
 
-            string[] args = command!.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] args = ParseCommandLine(command);
             string commandName = args[0];
-            string[] commandArgs = HandleSingleQuotes(args[1..]);
+            string[] commandArgs = args[1..];
 
             switch (commandName)
             { 
@@ -126,9 +126,41 @@ class Program
         return path.Split(separator);
     }
 
-    private static string[] HandleSingleQuotes(string[] inputs)
+    private static string[] ParseCommandLine(string command)
     {
-        return inputs.Select(arg => arg.Trim('\'')).ToArray();
+        List<string> args = new List<string>();
+        System.Text.StringBuilder current = new System.Text.StringBuilder();
+
+        bool insideSingleQuotes = false;
+        bool hasCurrentArg = false;
+
+        foreach (char c in command)
+        {
+            if (c == '\'')
+            {
+                insideSingleQuotes = !insideSingleQuotes;
+                hasCurrentArg = true;
+            }
+            else if (char.IsWhiteSpace(c) && !insideSingleQuotes)
+            {
+                if (hasCurrentArg)
+                {
+                    args.Add(current.ToString());
+                    current.Clear();
+                    hasCurrentArg = false;
+                }
+            }
+            else
+            {
+                current.Append(c);
+                hasCurrentArg = true;
+            }
+        }
+        if (hasCurrentArg)
+        {
+            args.Add(current.ToString());
+        }
+        return args.ToArray();
     }
 }
 
