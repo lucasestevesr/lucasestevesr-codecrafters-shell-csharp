@@ -92,19 +92,14 @@ class Program
 
     private static void ExecuteExternalCommand(string [] dirs, string commandName, string[] commandArgs, string? stdoutFilePath)
     {
-        string executablePath;
+        bool isExternal = true;
        
-        if (!TryFindExecutablePath(dirs, commandName, out executablePath))
+        if (!TryFindExecutablePath(dirs, commandName, out _))
         { 
             Console.WriteLine($"{commandName}: command not found");
             return;
         }
 
-        var processStartInfo = new ProcessStartInfo
-        {
-            FileName = commandName,
-            ArgumentList = { string.Join(" ", commandArgs) }, 
-        };
 
         if (stdoutFilePath is null)
         {
@@ -112,21 +107,33 @@ class Program
         }
         else
         {
-            processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.RedirectStandardError = true;
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = commandName,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = false
+            };
+            
+            foreach (var arg in commandArgs)
+            { 
+                processStartInfo.ArgumentList.Add(arg);
+            }
+
             try
             { 
                 using (var process = Process.Start(processStartInfo))
                 {
-                    if (process == null)
+                    if (process is null)
                     {
                         Console.WriteLine($"{commandName}: command not found");
                         return;
                     }
+
                     if (stdoutFilePath != null)
                     {
                         string output = process.StandardOutput.ReadToEnd();
-                        WriteStdout(output, stdoutFilePath);
+                        WriteStdout(output, stdoutFilePath, isExternal);
                     }
                     process.WaitForExit();
                 }
@@ -269,7 +276,7 @@ class Program
         return (commandTokens, stdoutFile);
     }
 
-    private static void WriteStdout(string output, string? stdoutFilePath)
+    private static void WriteStdout(string output, string? stdoutFilePath, bool isExternal = false)
     {
         if (stdoutFilePath == null)
         {
@@ -278,7 +285,14 @@ class Program
         }
         try
         {
-            File.WriteAllText(stdoutFilePath, output);
+            if (!isExternal)
+            {
+                File.WriteAllText(stdoutFilePath, output + Environment.NewLine);
+            }
+            else
+            {
+                File.WriteAllText(stdoutFilePath, output);
+            }        
         }
         catch
         {
