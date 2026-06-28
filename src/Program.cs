@@ -1,17 +1,19 @@
 using System.Diagnostics;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
+using System.Xml.Linq;
 
 class Program
 {
-    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd"};
-    private static char[] _specialChars = new char[] { '\\', '"', '$', '`'};
+    private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd" };
+    private static char[] _specialChars = new char[] { '\\', '"', '$', '`' };
 
     static void Main()
     {
-        
+
         var path = Environment.GetEnvironmentVariable("PATH");
-        var home = OperatingSystem.IsWindows() 
-            ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) 
+        var home = OperatingSystem.IsWindows()
+            ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
             : Environment.GetEnvironmentVariable("HOME") ?? "";
 
         string[] dirs = GetPathDirs(path);
@@ -21,27 +23,36 @@ class Program
         {
             Console.Write("$ ");
             string? command = Console.ReadLine();
-            
+
             if (string.IsNullOrWhiteSpace(command))
             {
                 continue;
             }
 
             string[] args = ParseCommandLine(command);
+            string? stdoutFilePath = null;
+
+            bool hasRedirection = args.Any(arg => arg == ">" || arg == "1>");
+            if (hasRedirection)
+            {
+                (args, stdoutFilePath) = HandleRedirection(args);
+            }
+
             string commandName = args[0];
             string[] commandArgs = args[1..];
 
+
             switch (commandName)
-            { 
+            {
                 case "exit":
                     return;
 
                 case "echo":
-                    Console.WriteLine(string.Join(" ", commandArgs));
+                    WriteStdout(string.Join(" ", commandArgs), stdoutFilePath);
                     break;
 
                 case "pwd":
-                    Console.WriteLine(Directory.GetCurrentDirectory());
+                    WriteStdout(Directory.GetCurrentDirectory(), stdoutFilePath);
                     break;
 
                 case "cd":
@@ -56,33 +67,76 @@ class Program
                 case "type":
 
                     var name = commandArgs[0];
-
+                    string output = "";
                     if (_builtinCommands.Contains(name))
                     {
-                        Console.WriteLine($"{name} is a shell builtin");
+                        output += ($"{name} is a shell builtin");
                     }
                     else if (TryFindExecutablePath(dirs, name, out filePath))
                     {
-                        Console.WriteLine($"{name} is {filePath}");
+                        output += ($"{name} is {filePath}");
                     }
                     else
                     {
-                        Console.WriteLine($"{name}: not found");
+                        output += ($"{name}: not found");
                     }
+                    WriteStdout(output, stdoutFilePath);
                     break;
-               
+
                 default:
-                    if (TryFindExecutablePath(dirs, commandName, out filePath))
-                    {
-                        Process.Start(commandName, commandArgs).WaitForExit();
-                    }
-                    else
-                    {
-                        Console.WriteLine($"{command}: command not found");
-                    }
+                    ExecuteExternalCommand(dirs,commandName, commandArgs, stdoutFilePath);
                     break;
             }
         }
+    }
+
+    private static void ExecuteExternalCommand(string [] dirs, string commandName, string[] commandArgs, string? stdoutFilePath)
+    {
+        string executablePath;
+       
+        if (!TryFindExecutablePath(dirs, commandName, out executablePath))
+        { 
+            Console.WriteLine($"{commandName}: command not found");
+            return;
+        }
+
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = commandName,
+            ArgumentList = { string.Join(" ", commandArgs) }, 
+        };
+
+        if (stdoutFilePath is null)
+        {
+           Process.Start(commandName, commandArgs).WaitForExit();
+        }
+        else
+        {
+            processStartInfo.RedirectStandardOutput = true;
+            processStartInfo.RedirectStandardError = true;
+            try
+            { 
+                using (var process = Process.Start(processStartInfo))
+                {
+                    if (process == null)
+                    {
+                        Console.WriteLine($"{commandName}: command not found");
+                        return;
+                    }
+                    if (stdoutFilePath != null)
+                    {
+                        string output = process.StandardOutput.ReadToEnd();
+                        WriteStdout(output, stdoutFilePath);
+                    }
+                    process.WaitForExit();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{commandName}: {ex.Message}");
+            }
+        }
+
     }
 
     private static bool TryFindExecutablePath(string[] dirs, string commandName, out string path)
@@ -126,7 +180,7 @@ class Program
     }
 
     /// <summary>
-    /// Parses a command line input into arguments using a simple state machine,
+    /// Parses a command line input into arguments using a simple state machine,Arguments
     /// handling quotes and escape characters.
     /// </summary>
     /// <param name="command">The command line input to parse.</param>
@@ -141,7 +195,7 @@ class Program
         bool escapeNextChar = false;
         bool hasCurrentArg = false;
 
-        for (int i=0; i < command.Length; i++)
+        for (int i = 0; i < command.Length; i++)
         {
             if (escapeNextChar)
             {
@@ -164,13 +218,12 @@ class Program
                     i++; // skip the next character since it's already processed.
                 }
                 else
-                { 
+                {
                     current.Append(command[i]);
                     hasCurrentArg = true;
                 }
                 continue;
             }
-
             else if (command[i] == '\'' && !insideDoubleQuotes)
             {
                 insideSingleQuotes = !insideSingleQuotes;
@@ -201,6 +254,36 @@ class Program
             args.Add(current.ToString());
         }
         return args.ToArray();
+    }
+
+    private static (string[] commandTokens, string? stdoutFile) HandleRedirection(string[] args)
+    {
+        int index = Array.FindIndex(args, arg => arg == ">" || arg == "1>");
+        var commandTokens = args.Take(index).ToArray();
+
+        if (index + 1 >= args.Length)
+            return (commandTokens, null);
+
+        var stdoutFile = args[index + 1];
+
+        return (commandTokens, stdoutFile);
+    }
+
+    private static void WriteStdout(string output, string? stdoutFilePath)
+    {
+        if (stdoutFilePath == null)
+        {
+            Console.WriteLine(output);
+            return;
+        }
+        try
+        {
+            File.WriteAllText(stdoutFilePath, output + Environment.NewLine);
+        }
+        catch
+        {
+            Console.WriteLine($"{stdoutFilePath}: No such file or directory");
+        }
     }
 }
 
