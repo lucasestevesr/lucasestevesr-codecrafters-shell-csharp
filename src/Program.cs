@@ -296,9 +296,17 @@ class Program
         {
             if (redirectOperator == "2>")
             {
-                Console.WriteLine(output);
-                File.WriteAllText(redirectFilePath, string.Empty);
-                
+                if (isExternal)
+                {
+                    File.WriteAllText(redirectFilePath, output);
+                }
+                else
+                {
+                    Console.WriteLine(output);
+                    File.WriteAllText(redirectFilePath, string.Empty);
+                }
+
+                return;
             }
             else
             {
