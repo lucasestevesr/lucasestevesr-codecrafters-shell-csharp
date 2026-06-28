@@ -30,12 +30,15 @@ class Program
             }
 
             string[] args = ParseCommandLine(command);
-            string? stdoutFilePath = null;
+            
+            string? redirectFilePath = null;
+            string? redirectOperator = args.FirstOrDefault(arg => arg == ">" || arg == "1>" || arg == "2>");
 
-            bool hasRedirection = args.Any(arg => arg == ">" || arg == "1>");
+            bool hasRedirection = args.Any(arg => arg == ">" || arg == "1>" || arg =="2>");
+
             if (hasRedirection)
             {
-                (args, stdoutFilePath) = HandleRedirection(args);
+                (args, redirectFilePath) = HandleRedirection(args);
             }
 
             string commandName = args[0];
@@ -48,11 +51,11 @@ class Program
                     return;
 
                 case "echo":
-                    WriteStdout(string.Join(" ", commandArgs), stdoutFilePath);
+                    WriteStdout(string.Join(" ", commandArgs), redirectFilePath, redirectOperator);
                     break;
 
                 case "pwd":
-                    WriteStdout(Directory.GetCurrentDirectory(), stdoutFilePath);
+                    WriteStdout(Directory.GetCurrentDirectory(), redirectFilePath, redirectOperator);
                     break;
 
                 case "cd":
@@ -80,19 +83,20 @@ class Program
                     {
                         output += ($"{name}: not found");
                     }
-                    WriteStdout(output, stdoutFilePath);
+                    WriteStdout(output, redirectFilePath, redirectOperator);
                     break;
 
                 default:
-                    ExecuteExternalCommand(dirs,commandName, commandArgs, stdoutFilePath);
+                    ExecuteExternalCommand(dirs,commandName, commandArgs, redirectFilePath, redirectOperator);
                     break;
             }
         }
     }
 
-    private static void ExecuteExternalCommand(string [] dirs, string commandName, string[] commandArgs, string? stdoutFilePath)
+    private static void ExecuteExternalCommand(string [] dirs, string commandName, string[] commandArgs, string? redirectFilePath, string? redirectOperator)
     {
         bool isExternal = true;
+
        
         if (!TryFindExecutablePath(dirs, commandName, out _))
         { 
@@ -101,7 +105,7 @@ class Program
         }
 
 
-        if (stdoutFilePath is null)
+        if (redirectOperator is null)
         {
            Process.Start(commandName, commandArgs).WaitForExit();
         }
@@ -111,8 +115,8 @@ class Program
             {
                 FileName = commandName,
                 UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = false
+                RedirectStandardOutput = redirectOperator != "2>",
+                RedirectStandardError = redirectOperator == "2>"
             };
             
             foreach (var arg in commandArgs)
@@ -130,10 +134,15 @@ class Program
                         return;
                     }
 
-                    if (stdoutFilePath != null)
+                    if (redirectFilePath != null && redirectOperator != "2>")
                     {
                         string output = process.StandardOutput.ReadToEnd();
-                        WriteStdout(output, stdoutFilePath, isExternal);
+                        WriteStdout(output, redirectFilePath, redirectOperator, isExternal);
+                    }
+                    else if (redirectFilePath != null && redirectOperator == "2>")
+                    {
+                        string output = process.StandardError.ReadToEnd();
+                        WriteStdout(output, redirectFilePath, redirectOperator, isExternal);
                     }
                     process.WaitForExit();
                 }
@@ -263,40 +272,49 @@ class Program
         return args.ToArray();
     }
 
-    private static (string[] commandTokens, string? stdoutFile) HandleRedirection(string[] args)
+    private static (string[] commandTokens, string? redirectFilePath) HandleRedirection(string[] args)
     {
-        int index = Array.FindIndex(args, arg => arg == ">" || arg == "1>");
+        int index = Array.FindIndex(args, arg => arg == ">" || arg == "1>" || arg =="2>");
         var commandTokens = args.Take(index).ToArray();
 
         if (index + 1 >= args.Length)
             return (commandTokens, null);
 
-        var stdoutFile = args[index + 1];
+        var redirectFilePath = args[index + 1];
 
-        return (commandTokens, stdoutFile);
+        return (commandTokens, redirectFilePath);
     }
 
-    private static void WriteStdout(string output, string? stdoutFilePath, bool isExternal = false)
+    private static void WriteStdout(string output, string? redirectFilePath, string? redirectOperator, bool isExternal = false)
     {
-        if (stdoutFilePath == null)
+        if (redirectFilePath == null)
         {
             Console.WriteLine(output);
             return;
         }
         try
-        {
-            if (!isExternal)
+        {   
+            if (redirectOperator == "2>")
             {
-                File.WriteAllText(stdoutFilePath, output + Environment.NewLine);
+                Console.WriteLine(output);
+                File.WriteAllText(redirectFilePath, output);
+                
             }
             else
             {
-                File.WriteAllText(stdoutFilePath, output);
-            }        
+                if(!isExternal)
+                {
+                    File.WriteAllText(redirectFilePath, output + Environment.NewLine);
+                }
+                else
+                {
+                    File.WriteAllText(redirectFilePath, output);
+                }
+            }
         }
         catch
         {
-            Console.WriteLine($"{stdoutFilePath}: No such file or directory");
+            Console.WriteLine($"{redirectFilePath}: No such file or directory");
         }
     }
 }
