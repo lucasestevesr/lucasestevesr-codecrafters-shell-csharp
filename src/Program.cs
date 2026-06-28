@@ -293,11 +293,11 @@ class Program
             return;
         }
         try
-        {   
+        {
             if (redirectOperator == "2>")
             {
                 Console.WriteLine(output);
-                File.WriteAllText(redirectFilePath, output);
+                File.WriteAllText(redirectFilePath, string.Empty);
                 
             }
             else
