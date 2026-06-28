@@ -310,13 +310,13 @@ class Program
             }
             else
             {
-                if(!isExternal)
+                if(isExternal)
                 {
-                    File.WriteAllText(redirectFilePath, output + Environment.NewLine);
+                    File.WriteAllText(redirectFilePath, output);
                 }
                 else
                 {
-                    File.WriteAllText(redirectFilePath, output);
+                    File.WriteAllText(redirectFilePath, output + Environment.NewLine);
                 }
             }
         }
