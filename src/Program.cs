@@ -278,7 +278,7 @@ class Program
         }
         try
         {
-            File.WriteAllText(stdoutFilePath, output + Environment.NewLine);
+            File.WriteAllText(stdoutFilePath, output);
         }
         catch
         {
