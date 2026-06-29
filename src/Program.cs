@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Diagnostics;
+using System.Net;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Xml.Linq;
@@ -7,6 +9,7 @@ class Program
 {
     private static List<string> _builtinCommands = new List<string> { "exit", "echo", "type", "pwd", "cd" };
     private static char[] _specialChars = new char[] { '\\', '"', '$', '`' };
+    private static readonly HashSet<string> RedirectionOperators = new() { ">", "1>", "2>", ">>", "1>>", "2>>" };
 
     static void Main()
     {
@@ -30,16 +33,8 @@ class Program
             }
 
             string[] args = ParseCommandLine(command);
-            
-            string? redirectFilePath = null;
-            string? redirectOperator = args.FirstOrDefault(arg => arg == ">" || arg == "1>" || arg == "2>");
 
-            bool hasRedirection = args.Any(arg => arg == ">" || arg == "1>" || arg =="2>");
-
-            if (hasRedirection)
-            {
-                (args, redirectFilePath) = HandleRedirection(args);
-            }
+            (args, var redirection) = ParseRedirection(args);
 
             string commandName = args[0];
             string[] commandArgs = args[1..];
@@ -51,11 +46,11 @@ class Program
                     return;
 
                 case "echo":
-                    WriteStdout(string.Join(" ", commandArgs), redirectFilePath, redirectOperator);
+                    WriteBuiltinStdout(string.Join(" ", commandArgs), redirection);
                     break;
 
                 case "pwd":
-                    WriteStdout(Directory.GetCurrentDirectory(), redirectFilePath, redirectOperator);
+                    WriteBuiltinStdout(Directory.GetCurrentDirectory(), redirection);
                     break;
 
                 case "cd":
@@ -83,21 +78,19 @@ class Program
                     {
                         output += ($"{name}: not found");
                     }
-                    WriteStdout(output, redirectFilePath, redirectOperator);
+                    WriteBuiltinStdout(output, redirection);
                     break;
 
                 default:
-                    ExecuteExternalCommand(dirs,commandName, commandArgs, redirectFilePath, redirectOperator);
+                    ExecuteExternalCommand(dirs,commandName, commandArgs, redirection);
                     break;
             }
         }
     }
 
-    private static void ExecuteExternalCommand(string [] dirs, string commandName, string[] commandArgs, string? redirectFilePath, string? redirectOperator)
+    private static void ExecuteExternalCommand(string [] dirs, string commandName, string[] commandArgs, Redirection redirection)
     {
-        bool isExternal = true;
 
-       
         if (!TryFindExecutablePath(dirs, commandName, out _))
         { 
             Console.WriteLine($"{commandName}: command not found");
@@ -105,54 +98,52 @@ class Program
         }
 
 
-        if (redirectOperator is null)
+        if (redirection.Type == RedirectionType.None || redirection.FilePath is null)
         {
            Process.Start(commandName, commandArgs).WaitForExit();
+           return;
         }
-        else
+
+        var processStartInfo = new ProcessStartInfo
         {
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = commandName,
-                UseShellExecute = false,
-                RedirectStandardOutput = redirectOperator != "2>",
-                RedirectStandardError = redirectOperator == "2>"
-            };
+            FileName = commandName,
+            UseShellExecute = false,
+            RedirectStandardOutput = redirection.Type == RedirectionType.Stdout,
+            RedirectStandardError = redirection.Type == RedirectionType.Stderr
+        };
             
-            foreach (var arg in commandArgs)
-            { 
-                processStartInfo.ArgumentList.Add(arg);
-            }
-
-            try
-            { 
-                using (var process = Process.Start(processStartInfo))
-                {
-                    if (process is null)
-                    {
-                        Console.WriteLine($"{commandName}: command not found");
-                        return;
-                    }
-
-                    if (redirectFilePath != null && redirectOperator != "2>")
-                    {
-                        string output = process.StandardOutput.ReadToEnd();
-                        WriteStdout(output, redirectFilePath, redirectOperator, isExternal);
-                    }
-                    else if (redirectFilePath != null && redirectOperator == "2>")
-                    {
-                        string output = process.StandardError.ReadToEnd();
-                        WriteStdout(output, redirectFilePath, redirectOperator, isExternal);
-                    }
-                    process.WaitForExit();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"{commandName}: {ex.Message}");
-            }
+        foreach (var arg in commandArgs)
+        { 
+            processStartInfo.ArgumentList.Add(arg);
         }
 
+        try
+        { 
+            using (var process = Process.Start(processStartInfo))
+            {
+                if (process is null)
+                {
+                    Console.WriteLine($"{commandName}: command not found");
+                    return;
+                }
+
+                if (redirection.Type == RedirectionType.Stdout)
+                {
+                    string output = process.StandardOutput.ReadToEnd();
+                    WriteRawToFile(output, redirection.FilePath, redirection.WriteMode);
+                }
+                else if (redirection.Type == RedirectionType.Stderr)
+                {
+                    string error = process.StandardError.ReadToEnd();
+                    WriteRawToFile(error, redirection.FilePath, redirection.WriteMode);
+                }
+                process.WaitForExit();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{commandName}: {ex.Message}");
+        }
     }
 
     private static bool TryFindExecutablePath(string[] dirs, string commandName, out string path)
@@ -272,58 +263,138 @@ class Program
         return args.ToArray();
     }
 
-    private static (string[] commandTokens, string? redirectFilePath) HandleRedirection(string[] args)
+    /// <summary>
+    /// Extracts redirection operators from command arguments.
+    /// </summary>
+    /// <remarks>
+    /// Separates command tokens from redirection information. Supported operators: ">", "1>", "2>".
+    /// Returns all arguments without redirection if no operator is found.
+    /// </remarks>
+    /// <param name="args">Command arguments potentially containing a redirection operator</param>
+    /// <returns>
+    /// Tuple containing:
+    /// - commandTokens: Command arguments before the operator
+    /// - redirection: Redirection type and target file path
+    /// </returns>
+    private static (string[] commandTokens, Redirection redirection) ParseRedirection(string[] args)
     {
-        int index = Array.FindIndex(args, arg => arg == ">" || arg == "1>" || arg =="2>");
-        var commandTokens = args.Take(index).ToArray();
+        int index = Array.FindIndex(args, arg => RedirectionOperators.Contains(arg));
+        if (index == -1)
+        {
+            return (args, new Redirection(RedirectionType.None, RedirectionWriteMode.None, null));
+        }
 
-        if (index + 1 >= args.Length)
-            return (commandTokens, null);
+        string op = args[index];
+        RedirectionType type = GetRedirectionType(op);
+        RedirectionWriteMode writeMode = GetRedirectionWriteMode(op);
 
-        var redirectFilePath = args[index + 1];
+        string? filePath = index + 1 < args.Length
+        ? args[index + 1]
+        : null;
 
-        return (commandTokens, redirectFilePath);
+        string[] commandTokens = args.Take(index).ToArray();
+
+        return (commandTokens, new Redirection(type,writeMode, filePath));
     }
 
-    private static void WriteStdout(string output, string? redirectFilePath, string? redirectOperator, bool isExternal = false)
+    private static void WriteBuiltinStdout(string output, Redirection redirection)
     {
-        if (redirectFilePath == null)
-        {
-            Console.WriteLine(output);
-            return;
-        }
         try
         {
-            if (redirectOperator == "2>")
+            if (redirection.Type == RedirectionType.Stdout && redirection.FilePath is not null)
             {
-                if (isExternal)
-                {
-                    File.WriteAllText(redirectFilePath, output);
-                }
-                else
-                {
-                    Console.WriteLine(output);
-                    File.WriteAllText(redirectFilePath, string.Empty);
-                }
+                WriteTextToFile(
+                    redirection.FilePath,
+                    output + Environment.NewLine,
+                    redirection.WriteMode
+                );
 
                 return;
             }
-            else
+
+            Console.WriteLine(output);
+
+            if (redirection.Type == RedirectionType.Stderr && redirection.FilePath is not null)
             {
-                if(isExternal)
-                {
-                    File.WriteAllText(redirectFilePath, output);
-                }
-                else
-                {
-                    File.WriteAllText(redirectFilePath, output + Environment.NewLine);
-                }
+                WriteTextToFile(
+                    redirection.FilePath,
+                    string.Empty,
+                    redirection.WriteMode
+                );
             }
         }
         catch
         {
-            Console.WriteLine($"{redirectFilePath}: No such file or directory");
+            Console.WriteLine($"{redirection.FilePath}: No such file or directory");
         }
     }
+
+    private static void WriteTextToFile(string filePath, string contents, RedirectionWriteMode writeMode)
+    {
+        if (writeMode == RedirectionWriteMode.Append)
+        {
+            File.AppendAllText(filePath, contents);
+        }
+        else
+        {
+            File.WriteAllText(filePath, contents);
+        }
+    }
+
+    private static void WriteRawToFile(string output, string filePath, RedirectionWriteMode writeMode)
+    {
+        if (writeMode == RedirectionWriteMode.Append)
+        {
+            try
+            {
+                File.WriteAllText(filePath, output);
+            }
+            catch
+            {
+                Console.WriteLine($"{filePath}: No such file or directory");
+            }
+        }
+        else
+        {
+            try
+            {
+                File.AppendAllText(filePath, output);
+            }
+            catch
+            {
+                Console.WriteLine($"{filePath}: No such file or directory");
+            }
+        }
+    }
+
+    private static RedirectionType GetRedirectionType(string op)
+    {
+        return op.StartsWith("2")
+            ? RedirectionType.Stderr
+            : RedirectionType.Stdout;
+    }
+
+    private static RedirectionWriteMode GetRedirectionWriteMode(string op)
+    {
+        return op.Contains(">>")
+            ? RedirectionWriteMode.Append
+            : RedirectionWriteMode.Overwrite;
+    }
+}
+
+record Redirection(RedirectionType Type, RedirectionWriteMode WriteMode, string? FilePath);
+
+public enum RedirectionType
+{
+    None,
+    Stdout,
+    Stderr
+}
+
+public enum RedirectionWriteMode
+{
+    None,
+    Overwrite,
+    Append,
 }
 
