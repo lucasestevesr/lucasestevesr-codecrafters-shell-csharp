@@ -347,7 +347,7 @@ class Program
         {
             try
             {
-                File.WriteAllText(filePath, output);
+                File.AppendAllText(filePath, output);
             }
             catch
             {
@@ -358,7 +358,7 @@ class Program
         {
             try
             {
-                File.AppendAllText(filePath, output);
+                File.WriteAllText(filePath, output);
             }
             catch
             {
